@@ -4,7 +4,7 @@
     "description": "A lightweight, high-performance, responsive Svelte template with TailwindCSS, SCSS, and Multi-Language, Localization, and Internationalization (abbrev. i18n)."
   },
   "app": {
-    "title": "WE ARE DOGS",
+    "title": "DOGS",
     "tagline": "A premium, minimalist Svelte boilerplate crafted for speed and responsiveness.",
     "intro": "This template is built by CaptainBrando for the homies. Fully optimized, lightweight, and ready for deployment.",
     "features": {

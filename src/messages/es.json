@@ -4,7 +4,7 @@
     "description": "Una plantilla Svelte ligera, responsiva y de alto rendimiento con Tailwind CSS, SCSS y soporte multi-idioma, localización e internacionalización (abbrev. i18n)."
   },
   "app": {
-    "title": "WE ARE DOGS",
+    "title": "DOGS",
     "tagline": "Una plantilla de Svelte premium y minimalista diseñada para velocidad y adaptabilidad.",
     "intro": "Esta plantilla está desarrollada por CaptainBrando para los homies. Totalmente optimizada, ligera y lista para producción.",
     "features": {
