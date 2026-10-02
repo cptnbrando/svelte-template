@@ -1,7 +1,6 @@
 // @ts-nocheck
 import App from './App.svelte'
 import './app.css'
-import './app.scss'
 import { mount } from 'svelte'
 
 // index.html leaves the static fallback visible on browsers too old for the app; never mount over it there
