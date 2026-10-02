@@ -139,4 +139,12 @@
     background-color: var(--bg-app);
     color: var(--color-text);
   }
+
+  // h-dvh needs Chrome 108+; older app-tier browsers (see APP_CSS_TARGET) fall back to vh to still fill the screen
+  @supports not (height: 100dvh) {
+    main {
+      height: 100vh;
+      max-height: 100vh;
+    }
+  }
 </style>

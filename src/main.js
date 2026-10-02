@@ -4,7 +4,10 @@ import './app.css'
 import './app.scss'
 import { mount } from 'svelte'
 
-const app = mount(App, {
+// index.html leaves the static fallback visible on browsers too old for the app; never mount over it there
+const IS_LEGACY_BROWSER = !document.getElementById('legacy-fallback').hidden
+
+const app = IS_LEGACY_BROWSER ? null : mount(App, {
   target: document.getElementById('app'),
 });
 
