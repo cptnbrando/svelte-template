@@ -1,1 +1,4 @@
 @import "tailwindcss";
+
+/* Short screens (phones on their side, small phones, squat displays): compact layout variant, e.g. short:hidden */
+@custom-variant short (@media (max-height: 640px));

@@ -6,7 +6,6 @@ Uses
 - TailwindCSS
 - SCSS
 - JavaScript (fuck TypeScript lol)
-- i18n (svelte-i18n)
 - Icons (@lucide/svelte)
 - Testing
   - Vitest
