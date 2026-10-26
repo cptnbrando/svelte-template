@@ -1,18 +1,7 @@
 @import "tailwindcss";
+/* Colors, theme tokens and custom variants (short:, ultrawide:) */
+@import "./styles/theme.css";
 @import "./styles/legacy-fallback.css";
-
-/* Short screens (phones on their side, small phones, squat displays): compact layout variant, e.g. short:hidden */
-@custom-variant short (@media (max-height: 640px));
-
-/* Theme tokens (Batman Beyond inspired neon-red / dark palette). Each one becomes Tailwind utilities,
-   e.g. --color-neon-red -> text-neon-red, bg-neon-red/20, border-neon-red/30. Used across src/App.svelte. */
-@theme {
-  --color-neon-red: #ff3344;
-  --color-app: #050508;
-  --color-card: #0e0e12;
-  --color-card-hover: #14141a;
-  --color-muted: #8e8e9f;
-}
 
 body {
   margin: 0;
@@ -41,9 +30,8 @@ body {
 
 ::-webkit-scrollbar-track {
   background: var(--color-app);
-  /* neon-red at 15%, literal so it works without color-mix() (Chrome < 111) */
-  border-left: 1px solid rgb(255 51 68 / 15%);
-  border-top: 1px solid rgb(255 51 68 / 15%);
+  border-left: 1px solid var(--color-neon-red-faint);
+  border-top: 1px solid var(--color-neon-red-faint);
 }
 
 ::-webkit-scrollbar-thumb {

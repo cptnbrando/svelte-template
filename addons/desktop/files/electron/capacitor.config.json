@@ -1,0 +1,5 @@
+{
+  "appId": "__APP_ID__",
+  "appName": "__APP_TITLE__",
+  "webDir": "dist"
+}
