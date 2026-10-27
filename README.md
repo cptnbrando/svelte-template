@@ -42,7 +42,7 @@ node start.js
 npm install
 ```
 
-Setup asks for the package name, title, description, target platforms, git workflow, and optional app details. Choose any combination of Web, Android, iOS, macOS, Windows, and Linux. Every generated app receives Cloudflare Pages, Functions, D1, and branch deployment workflows. Native selections also add a Tauri 2 shell and a manually triggered GitHub Actions workflow that builds selected targets on compatible runners.
+Setup asks for the package name, title, description, target platforms, git workflow, and optional app details. Target platforms come from a checkbox list (arrow keys move, space toggles, `a` or the "all" row checks everything, Enter confirms), so any combination of Web, Android, iOS, macOS, Windows, and Linux works. Piped answers (`node start.js < answers.txt`) give platforms as comma-separated numbers instead. Every generated app receives Cloudflare Pages, Functions, D1, and branch deployment workflows. Native selections also add a Tauri 2 shell and a manually triggered GitHub Actions workflow that builds selected targets on compatible runners.
 
 Then `start.js` removes itself and `addons/` so the generated app carries no setup code. `start.ps1` and `start.sh` are shortcuts for `node start.js`.
 

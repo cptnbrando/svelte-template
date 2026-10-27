@@ -4,7 +4,7 @@
 import { execSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
-import { createInterface } from 'node:readline';
+import { createInterface, emitKeypressEvents } from 'node:readline';
 
 const ROOT = import.meta.dirname;
 const ADDONS_DIR = join(ROOT, 'addons');
@@ -12,7 +12,6 @@ const DESKTOP_DIR = join(ADDONS_DIR, 'desktop');
 const CLOUDFLARE_DIR = join(ADDONS_DIR, 'cloudflare');
 const GIT_POLICIES = JSON.parse(readFileSync(join(ADDONS_DIR, 'agents', 'git-policies.json'), 'utf8'));
 const SETUP_PATHS = ['start.js', 'start.ps1', 'start.sh', 'addons'];
-// Files that carry __APP_*__ placeholders once the desktop shell is copied in
 const PLATFORMS = [
   { label: 'web', value: 'web' },
   { label: 'android', value: 'android' },
@@ -30,16 +29,32 @@ const TEMPLATE_CREDIT = 'Created from the DOGS Svelte template.';
 const MARKER = (name) => new RegExp(`<!-- setup:${name} -->\\n?([\\s\\S]*?)<!-- /setup:${name} -->\\n?`);
 const COLOR = { cyan: '\x1b[36m', green: '\x1b[32m', yellow: '\x1b[33m', dim: '\x1b[2m', reset: '\x1b[0m' };
 
-// Answers are read from a queue, so piped input (`node start.js < answers.txt`) works as well as a terminal
-const rl = createInterface({ input: process.stdin, output: process.stdout });
+const ANSI = { up: (lines) => `\x1b[${lines}A`, clearLine: '\x1b[2K', hideCursor: '\x1b[?25l', showCursor: '\x1b[?25h' };
+const EXIT_CODE_INTERRUPTED = 130;
+const DEFAULT_PLATFORMS = ['web'];
+
+// A terminal gets one short-lived readline per question, which frees stdin for the checkbox list in between.
+// Piped input (`node start.js < answers.txt`) is read ahead into a queue by one long-lived readline instead.
+const IS_TERMINAL = Boolean(process.stdin.isTTY && process.stdout.isTTY);
 const pendingLines = [];
 const waiting = [];
 let inputClosed = false;
-rl.on('line', (line) => (waiting.length ? waiting.shift()(line) : pendingLines.push(line)));
-rl.on('close', () => {
+const pipedInput = IS_TERMINAL ? null : createInterface({ input: process.stdin });
+pipedInput?.on('line', (line) => (waiting.length ? waiting.shift()(line) : pendingLines.push(line)));
+pipedInput?.on('close', () => {
   inputClosed = true;
   waiting.splice(0).forEach((resolve) => resolve(''));
 });
+
+/** Reads one line from the terminal, exiting cleanly on Ctrl+C. */
+function readTerminalLine() {
+  const prompt = createInterface({ input: process.stdin, output: process.stdout });
+  prompt.on('SIGINT', () => process.exit(EXIT_CODE_INTERRUPTED));
+  return new Promise((resolve) => prompt.once('line', (line) => {
+    prompt.close();
+    resolve(line);
+  }));
+}
 
 /**
  * Asks one question and resolves with the trimmed answer, or `fallback` when it is left blank.
@@ -48,6 +63,7 @@ rl.on('close', () => {
  */
 async function ask(question, fallback = '') {
   process.stdout.write(`${question}${fallback ? ` ${COLOR.dim}(${fallback})${COLOR.reset}` : ''}: `);
+  if (IS_TERMINAL) return (await readTerminalLine()).trim() || fallback;
   if (pendingLines.length) return pendingLines.shift().trim() || fallback;
   if (inputClosed) return fallback;
   return (await new Promise((resolve) => waiting.push(resolve))).trim() || fallback;
@@ -107,20 +123,81 @@ function writeBuildWorkflow(platforms) {
   writeFileSync(workflowPath, workflow);
 }
 
-/** Displays a checkbox-style multi-select list; enter selected item numbers separated by commas. */
+/**
+ * Interactive checkbox list: up/down (or j/k) moves, space toggles, `a` toggles all, enter confirms.
+ * Toggling the "all" row checks or clears every platform.
+ * @returns {Promise<string[]>} Selected platform values.
+ */
+function checkPlatforms() {
+  const options = [...PLATFORMS, ALL_PLATFORMS_OPTION];
+  const checked = new Set(DEFAULT_PLATFORMS);
+  let cursor = 0;
+  let hint = '';
+  let drawn = 0;
+  const allChecked = () => PLATFORMS.every((platform) => checked.has(platform.value));
+  const toggleAll = () => {
+    const next = !allChecked();
+    PLATFORMS.forEach((platform) => (next ? checked.add(platform.value) : checked.delete(platform.value)));
+  };
+  const render = () => {
+    const lines = options.map((option, index) => {
+      const isChecked = option === ALL_PLATFORMS_OPTION ? allChecked() : checked.has(option.value);
+      const pointer = index === cursor ? `${COLOR.cyan}>${COLOR.reset}` : ' ';
+      const box = isChecked ? `${COLOR.green}[x]${COLOR.reset}` : '[ ]';
+      return `${pointer} ${box} ${option.label}`;
+    });
+    lines.push(`${COLOR.dim}${hint || 'up/down move, space toggle, a all, enter confirm'}${COLOR.reset}`);
+    const reset = drawn ? ANSI.up(drawn) : '';
+    process.stdout.write(reset + lines.map((line) => `${ANSI.clearLine}${line}\n`).join(''));
+    drawn = lines.length;
+  };
+
+  return new Promise((resolve) => {
+    const finish = () => {
+      process.stdin.off('keypress', onKey);
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+      process.stdout.write(ANSI.showCursor);
+      resolve(PLATFORMS.filter((platform) => checked.has(platform.value)).map((platform) => platform.value));
+    };
+    /** @param {string} _text @param {{ name?: string, ctrl?: boolean }} key */
+    const onKey = (_text, key = {}) => {
+      if (key.ctrl && key.name === 'c') {
+        process.stdout.write(ANSI.showCursor);
+        process.exit(EXIT_CODE_INTERRUPTED);
+      }
+      hint = '';
+      if (key.name === 'up' || key.name === 'k') cursor = (cursor - 1 + options.length) % options.length;
+      if (key.name === 'down' || key.name === 'j') cursor = (cursor + 1) % options.length;
+      if (key.name === 'a') toggleAll();
+      if (key.name === 'space') {
+        const option = options[cursor];
+        if (option === ALL_PLATFORMS_OPTION) toggleAll();
+        else checked.has(option.value) ? checked.delete(option.value) : checked.add(option.value);
+      }
+      if (key.name === 'return' || key.name === 'enter') {
+        if (checked.size) return finish();
+        hint = `${COLOR.yellow}Check at least one platform.${COLOR.reset}`;
+      }
+      render();
+    };
+    emitKeypressEvents(process.stdin);
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.on('keypress', onKey);
+    process.stdout.write(ANSI.hideCursor);
+    render();
+  });
+}
+
+/** Asks which platforms to target: a checkbox list in a terminal, comma-separated numbers when input is piped. */
 async function selectPlatforms() {
-  console.log(`\n${COLOR.yellow}Target platforms${COLOR.reset}: enter numbers separated by commas.`);
+  console.log(`\n${COLOR.yellow}Target platforms${COLOR.reset}`);
+  if (IS_TERMINAL) return checkPlatforms();
   const options = [...PLATFORMS, ALL_PLATFORMS_OPTION];
   options.forEach((platform, index) => console.log(`  [ ] ${index + 1}. ${platform.label}`));
-  const selected = await ask('Select platforms', '1');
-  const indexes = new Set(selected.split(',').map((value) => Number(value.trim()) - 1));
-  const allIndex = options.length - 1;
-  const allSelected = indexes.has(allIndex);
-  const platforms = allSelected
-    ? PLATFORMS
-    : PLATFORMS.filter((_platform, index) => indexes.has(index));
-  if (!platforms.length) return [];
-  if (allSelected) console.log('  [x] all selected');
+  const indexes = new Set((await ask('Select platforms (numbers, comma separated)', '1')).split(',').map((value) => Number(value.trim()) - 1));
+  const platforms = indexes.has(options.length - 1) ? PLATFORMS : PLATFORMS.filter((_platform, index) => indexes.has(index));
   PLATFORMS.forEach((platform) => console.log(`  [${platforms.includes(platform) ? 'x' : ' '}] ${platform.label}`));
   return platforms.map((platform) => platform.value);
 }
@@ -203,7 +280,7 @@ async function main() {
     for (let statement = await ask('Statement'); statement; statement = await ask('Another statement')) statements.push(statement);
     dataUrl = await ask('Data source URL (blank for none)');
   }
-  rl.close();
+  pipedInput?.close();
 
   const values = {
     __APP_NAME__: name,
@@ -233,4 +310,4 @@ async function main() {
   console.log('  npm run dev\n');
 }
 
-main().finally(() => rl.close());
+main().finally(() => pipedInput?.close());
