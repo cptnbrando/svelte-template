@@ -22,7 +22,7 @@ const PLATFORMS = [
 ];
 const ALL_PLATFORMS_OPTION = { label: 'all', value: 'all' };
 const TEMPLATE_REMOTE_HINT = 'svelte-template';
-const APP_ID_PREFIX = 'net.wearedogs.';
+const APP_ID_PREFIX = 'net.dogs.';
 const DEFAULT_CLOUDFLARE_NAME = 'dogs-app';
 const DATA_RULE = 'Stay inside the free tier: cache responses, lazy load, and keep data locally so each visitor makes as few requests as possible.';
 const TEMPLATE_CREDIT = 'Created from the DOGS Svelte template.';

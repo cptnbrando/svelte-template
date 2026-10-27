@@ -6,7 +6,7 @@
   // Constant configurations for layout metrics
   const APP_MAX_WIDTH = "max-w-7xl";
   const CURRENT_YEAR = new Date().getFullYear();
-  const WEAREDOGS_URL = "https://wearedogs.net";
+  const WEAREDOGS_URL = "https://dogs.red";
 
   // Shared feature card styles
   const CARD_CLASS =
