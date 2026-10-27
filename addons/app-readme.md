@@ -16,6 +16,13 @@ npm run dev
 - `api/`: Cloudflare Pages Functions (`api/functions/`), SQL migrations (`api/migrations/`) and `wrangler.jsonc`. Run Wrangler from this folder.
 - `src/tauri/`: the Tauri 2 native shell, when native platforms are selected.
 
+## Architecture
+
+This app is Cloudflare serverless. The deployment target depends on what it needs:
+
+- **No data and no logins**: the static build is deployed to Cloudflare Pages. No Worker, D1 or R2.
+- **Data or logins**: the app is served by Cloudflare Workers, with an API that connects to D1, R2 and other bindings. Web and native clients reach data only through that API.
+
 ## Branches
 
 `master` is the only root branch. There is no `main` branch. Keep `master` as the GitHub default branch and the Cloudflare Pages production branch; all other work happens on feature branches merged into `master`.

@@ -2,6 +2,13 @@
 
 Starter for DOGS apps built with Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, and Cloudflare Workers, D1, R2, and Pages. Database access uses native Cloudflare bindings and D1 APIs; no ORM is used. Native apps use Tauri 2 and share the same Cloudflare APIs.
 
+## Architecture
+
+DOGS apps are Cloudflare serverless. The deployment target depends on what the app needs:
+
+- **No data and no logins**: the static build is deployed to Cloudflare Pages. No Worker, D1 or R2.
+- **Data or logins**: the app is served by Cloudflare Workers, with an API that connects to D1, R2 and other bindings. Web and native clients reach data only through that API.
+
 ## Branches
 
 `master` is the only root branch, for this template and every app created from it. There is no `main` branch. Keep `master` as the GitHub default branch and the Cloudflare Pages production branch; all other work happens on feature branches merged into `master`.

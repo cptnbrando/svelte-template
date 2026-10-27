@@ -11,6 +11,9 @@ Rules for every AI agent working in this repository.
 <!-- /setup:project -->
 
 ## Cloudflare environments
+- The architecture is Cloudflare serverless. Choose the deployment target by what the app needs:
+  - **No data and no logins**: deploy the static build to Cloudflare Pages. No Worker, D1 or R2.
+  - **Data or logins**: serve the app from Cloudflare Workers, with an API that connects to D1, R2 and other bindings. The web and native clients reach data only through that API.
 - Use Cloudflare Workers and D1 for serverless logic and relational data, with R2 for object storage when needed. Use Cloudflare bindings and D1 APIs directly. Stay inside the free tier, cache responses, lazy load, and keep data locally so each visitor makes as few requests as possible.
 - Server code lives in `api/`: Pages Functions in `api/functions/`, SQL migrations in `api/migrations/`, Wrangler config in `api/wrangler.jsonc`. The optional Tauri shell lives in `src/tauri/`.
 - Database changes require versioned SQL migrations. SQL migrations are the source of truth; do not duplicate database schemas in application code.
