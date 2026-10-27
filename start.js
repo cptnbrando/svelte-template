@@ -9,21 +9,24 @@ import { createInterface } from 'node:readline';
 const ROOT = import.meta.dirname;
 const ADDONS_DIR = join(ROOT, 'addons');
 const DESKTOP_DIR = join(ADDONS_DIR, 'desktop');
+const CLOUDFLARE_DIR = join(ADDONS_DIR, 'cloudflare');
 const GIT_POLICIES = JSON.parse(readFileSync(join(ADDONS_DIR, 'agents', 'git-policies.json'), 'utf8'));
 const SETUP_PATHS = ['start.js', 'start.ps1', 'start.sh', 'addons'];
 // Files that carry __APP_*__ placeholders once the desktop shell is copied in
 const PLATFORMS = [
-  { label: 'Web', value: 'web' },
-  { label: 'Android', value: 'android' },
-  { label: 'iOS', value: 'ios' },
-  { label: 'macOS', value: 'macos' },
-  { label: 'Windows', value: 'windows' },
-  { label: 'Linux', value: 'linux' },
+  { label: 'web', value: 'web' },
+  { label: 'android', value: 'android' },
+  { label: 'iOS app', value: 'ios' },
+  { label: 'windows', value: 'windows' },
+  { label: 'mac OS X', value: 'macos' },
+  { label: 'linux', value: 'linux' },
 ];
+const ALL_PLATFORMS_OPTION = { label: 'all', value: 'all' };
 const TEMPLATE_REMOTE_HINT = 'svelte-template';
 const APP_ID_PREFIX = 'net.wearedogs.';
+const DEFAULT_CLOUDFLARE_NAME = 'dogs-app';
 const DATA_RULE = 'Stay inside the free tier: cache responses, lazy load, and keep data locally so each visitor makes as few requests as possible.';
-const TEMPLATE_CREDIT = 'Created from the DOGS Svelte template: Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, Drizzle ORM, and optional Tauri 2.';
+const TEMPLATE_CREDIT = 'Created from the DOGS Svelte template.';
 const MARKER = (name) => new RegExp(`<!-- setup:${name} -->\\n?([\\s\\S]*?)<!-- /setup:${name} -->\\n?`);
 const COLOR = { cyan: '\x1b[36m', green: '\x1b[32m', yellow: '\x1b[33m', dim: '\x1b[2m', reset: '\x1b[0m' };
 
@@ -66,7 +69,7 @@ async function confirm(question, fallback) {
  */
 function fillPlaceholders(file, values) {
   const path = join(ROOT, file);
-  const escape = ['.json', '.toml'].includes(extname(file)) ? (value) => JSON.stringify(value).slice(1, -1) : (value) => value;
+  const escape = ['.json', '.jsonc', '.toml'].includes(extname(file)) ? (value) => JSON.stringify(value).slice(1, -1) : (value) => value;
   const text = readFileSync(path, 'utf8').replace(/__APP_[A-Z]+__/g, (token) => escape(values[token] ?? token));
   writeFileSync(path, text);
 }
@@ -84,6 +87,15 @@ function addDesktop(pkg, values, platforms) {
   writeFileSync(join(scriptDir, 'build-platforms.js'), `import { spawnSync } from 'node:child_process';\n\nconst COMMANDS = { android: ['tauri', 'android', ['build']], ios: ['tauri', 'ios', ['build']], macos: ['tauri', 'build', []], windows: ['tauri', 'build', []], linux: ['tauri', 'build', []] };\nconst selected = process.argv.slice(2).filter((platform) => Object.hasOwn(COMMANDS, platform));\nfor (const platform of selected) {\n  const [command, subcommand, args] = COMMANDS[platform];\n  const result = spawnSync('npx', [command, subcommand, ...args], { stdio: 'inherit', shell: process.platform === 'win32' });\n  if (result.status !== 0) process.exit(result.status ?? 1);\n}\n`);
 }
 
+/** Adds the Pages Functions, D1 bindings, local Wrangler commands, and environment deploy workflow. */
+function addCloudflare(pkg, app) {
+  cpSync(join(CLOUDFLARE_DIR, 'files'), ROOT, { recursive: true });
+  fillPlaceholders('wrangler.jsonc', app.values);
+  fillPlaceholders('.github/workflows/deploy-cloudflare.yml', app.values);
+  pkg.scripts['cloudflare:dev'] = 'npx --yes wrangler pages dev dist --persist-to .wrangler/state';
+  pkg.scripts['cloudflare:db:migrate:local'] = `npx --yes wrangler d1 migrations apply ${app.cfName}-production --local --persist-to .wrangler/state`;
+}
+
 /** Adds a manually triggered workflow that builds only the selected release targets. */
 function writeBuildWorkflow(platforms) {
   const workflowPath = join(ROOT, '.github', 'workflows', 'build-apps.yml');
@@ -97,11 +109,20 @@ function writeBuildWorkflow(platforms) {
 
 /** Displays a checkbox-style multi-select list; enter selected item numbers separated by commas. */
 async function selectPlatforms() {
-  console.log(`\n${COLOR.yellow}Target platforms${COLOR.reset}: choose any combination.`);
-  PLATFORMS.forEach((platform, index) => console.log(`  [ ] ${index + 1}. ${platform.label}`));
-  const selected = await ask('Select numbers separated by commas', '1');
+  console.log(`\n${COLOR.yellow}Target platforms${COLOR.reset}: enter numbers separated by commas.`);
+  const options = [...PLATFORMS, ALL_PLATFORMS_OPTION];
+  options.forEach((platform, index) => console.log(`  [ ] ${index + 1}. ${platform.label}`));
+  const selected = await ask('Select platforms', '1');
   const indexes = new Set(selected.split(',').map((value) => Number(value.trim()) - 1));
-  return PLATFORMS.filter((_platform, index) => indexes.has(index)).map((platform) => platform.value);
+  const allIndex = options.length - 1;
+  const allSelected = indexes.has(allIndex);
+  const platforms = allSelected
+    ? PLATFORMS
+    : PLATFORMS.filter((_platform, index) => indexes.has(index));
+  if (!platforms.length) return [];
+  if (allSelected) console.log('  [x] all selected');
+  PLATFORMS.forEach((platform) => console.log(`  [${platforms.includes(platform) ? 'x' : ' '}] ${platform.label}`));
+  return platforms.map((platform) => platform.value);
 }
 
 /**
@@ -113,13 +134,14 @@ function writeAgents(app) {
     '## Project',
     `- **Name**: ${app.title} (\`${app.name}\`)`,
     `- **What it is**: ${app.description}`,
-    '- **Main tech stack**: Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, Drizzle ORM, Cloudflare serverless services, and optional Tauri 2 native shells.',
+    `- **Target platforms**: ${app.platforms.join(', ')}`,
+    `- **Main tech stack**: Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, Cloudflare Workers, D1, R2, Pages${app.platforms.some((platform) => platform !== 'web') ? ', and Tauri 2' : ''}. Database access uses Cloudflare bindings and APIs directly; no ORM.`,
     ...app.statements.map((statement) => `- ${statement}`),
     ...(app.dataUrl ? [`- **Data**: Loaded from ${app.dataUrl}. ${DATA_RULE}`] : []),
     `- ${TEMPLATE_CREDIT}`,
   ].join('\n');
   const desktop = app.platforms.some((platform) => platform !== 'web')
-    ? readFileSync(join(DESKTOP_DIR, 'agents-section.md'), 'utf8').replace('__PLATFORMS__', app.platforms.join(', '))
+    ? readFileSync(join(DESKTOP_DIR, 'agents-section.md'), 'utf8').replace('__PLATFORMS__', app.platforms.filter((platform) => platform !== 'web').join(', '))
     : '';
   const path = join(ROOT, 'AGENTS.md');
   const text = readFileSync(path, 'utf8')
@@ -166,6 +188,7 @@ async function main() {
 
   const platforms = await selectPlatforms();
   if (!platforms.length) return console.log('Choose at least one platform; nothing changed.');
+  const nativePlatforms = platforms.filter((platform) => platform !== 'web');
 
   console.log(`\n${COLOR.yellow}Git workflow${COLOR.reset} for AI agents (goes in AGENTS.md):`);
   GIT_POLICIES.forEach((policy, i) => console.log(`  ${i + 1}. ${policy.label}`));
@@ -184,6 +207,7 @@ async function main() {
 
   const values = {
     __APP_NAME__: name,
+    __APP_CFNAME__: name.replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '') || DEFAULT_CLOUDFLARE_NAME,
     __APP_TITLE__: title,
     __APP_DESCRIPTION__: description,
     __APP_ID__: APP_ID_PREFIX + name.replace(/[^a-z0-9]/g, '').replace(/^(?=\d|$)/, 'app'),
@@ -191,20 +215,21 @@ async function main() {
   const pkgPath = join(ROOT, 'package.json');
   const { name: _templateName, description: _templateDescription, ...templatePkg } = JSON.parse(readFileSync(pkgPath, 'utf8'));
   const pkg = { name, description, ...templatePkg };
-  if (platforms.some((platform) => platform !== 'web')) addDesktop(pkg, values, platforms);
+  addCloudflare(pkg, { name, cfName: values.__APP_CFNAME__, values });
+  if (nativePlatforms.length) addDesktop(pkg, values, platforms);
   else writeBuildWorkflow(platforms);
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
   rmSync(join(ROOT, 'package-lock.json'), { force: true });
   writePageMeta(title, description);
   writeAgents({ title, name, description, statements, dataUrl, gitRule, platforms });
-  const readme = readFileSync(join(ADDONS_DIR, 'app-readme.md'), 'utf8') + (platforms.some((platform) => platform !== 'web') ? readFileSync(join(DESKTOP_DIR, 'readme-section.md'), 'utf8').replace('__PLATFORMS__', platforms.join(', ')) : '');
+  const readme = readFileSync(join(ADDONS_DIR, 'app-readme.md'), 'utf8') + (nativePlatforms.length ? readFileSync(join(DESKTOP_DIR, 'readme-section.md'), 'utf8').replace('__PLATFORMS__', nativePlatforms.join(', ')) : '');
   writeFileSync(join(ROOT, 'README.md'), readme);
   fillPlaceholders('README.md', values);
   SETUP_PATHS.forEach((path) => rmSync(join(ROOT, path), { recursive: true, force: true }));
 
   console.log(`\n${COLOR.green}${title} is ready.${COLOR.reset} Next:`);
   console.log('  npm install');
-  if (platforms.some((platform) => platform !== 'web')) console.log('  npm run tauri:dev');
+  if (nativePlatforms.length) console.log('  npm run tauri:dev');
   console.log('  npm run dev\n');
 }
 

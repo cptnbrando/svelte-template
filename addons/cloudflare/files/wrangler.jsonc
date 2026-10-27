@@ -1,0 +1,35 @@
+{
+  "name": "__APP_CFNAME__",
+  "compatibility_date": "2026-10-27",
+  "pages_build_output_dir": "./dist",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "__APP_CFNAME__-production",
+      "database_id": "__PRODUCTION_D1_DATABASE_ID__",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "env": {
+    "preview": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "__APP_CFNAME__-staging",
+          "database_id": "__STAGING_D1_DATABASE_ID__",
+          "migrations_dir": "migrations"
+        }
+      ]
+    },
+    "production": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "__APP_CFNAME__-production",
+          "database_id": "__PRODUCTION_D1_DATABASE_ID__",
+          "migrations_dir": "migrations"
+        }
+      ]
+    }
+  }
+}

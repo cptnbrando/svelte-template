@@ -1,6 +1,30 @@
 # DOGS Svelte Template
 
-Starter for DOGS apps built with Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, and Drizzle ORM. Native apps use Tauri 2.
+Starter for DOGS apps built with Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, and Cloudflare Workers, D1, R2, and Pages. Database access uses native Cloudflare bindings and D1 APIs; no ORM is used. Native apps use Tauri 2 and share the same Cloudflare APIs.
+
+## The three environments
+
+All apps use separate local, staging, and production environments.
+
+### Local (your laptop)
+
+Run Pages Functions on Workers with `npm run cloudflare:dev` (`npx wrangler pages dev dist`). Wrangler uses Miniflare to simulate Workers and D1 locally. Standalone Workers run with `npx wrangler dev`. Local D1 data is stored in a SQLite file under `.wrangler/state/`, stays on your machine, and is ignored by Git. Use SQL migrations and test data here.
+
+### Staging / Preview (pull requests and testing)
+
+Staging runs on Cloudflare's global edge network through a Cloudflare Pages preview deployment. GitHub Actions deploys branch and pull request changes to preview, where all previews share a dedicated staging D1 database containing synthetic test data. Keep preview migrations additive and do not reset this shared database.
+
+### Production (live users)
+
+Production runs on Cloudflare's global edge network through Cloudflare Pages and Workers. It uses a separate production D1 database. GitHub Actions deploys production only when changes reach `master`.
+
+Cloudflare Pages and GitHub Actions must have separate preview and production D1 bindings configured. Configure the Actions Cloudflare API token and account ID as repository secrets; never put credentials in source files. Preview contains synthetic test data only. Fork pull requests cannot access deployment secrets and are not deployed.
+
+### Before the first deploy
+
+Create a Pages Direct Upload project with `npx --yes wrangler pages project create` and use the `name` from `wrangler.jsonc`; select `master` as its production branch. Direct Upload keeps GitHub Actions as the deployment path. Create separate staging and production D1 databases, then replace the matching database ID placeholders in `wrangler.jsonc`. Add `CLOUDFLARE_API_TOKEN` (Pages and D1 edit access) and `CLOUDFLARE_ACCOUNT_ID` as GitHub repository secrets. The generated `deploy-cloudflare.yml` applies the environment's SQL migrations and deploys previews for branch pushes and pull requests; pushes to `master` deploy production.
+
+For a local Pages Functions and D1 session, run `npm install`, `npm run build`, then `npm run cloudflare:dev`. Run local SQL migrations with `npm run cloudflare:db:migrate:local`. The local database is isolated from Cloudflare and is not a copy of staging or production.
 
 ## Browser support
 
@@ -18,7 +42,7 @@ node start.js
 npm install
 ```
 
-Setup asks for the package name, title, description, target platforms, git workflow, and optional app details. Choose any combination of Web, Android, iOS, macOS, Windows, and Linux. Native selections add a Tauri 2 shell and a manually triggered GitHub Actions workflow that builds selected targets on compatible runners. Web-only apps do not receive native build files.
+Setup asks for the package name, title, description, target platforms, git workflow, and optional app details. Choose any combination of Web, Android, iOS, macOS, Windows, and Linux. Every generated app receives Cloudflare Pages, Functions, D1, and branch deployment workflows. Native selections also add a Tauri 2 shell and a manually triggered GitHub Actions workflow that builds selected targets on compatible runners.
 
 Then `start.js` removes itself and `addons/` so the generated app carries no setup code. `start.ps1` and `start.sh` are shortcuts for `node start.js`.
 
@@ -27,3 +51,4 @@ Then `start.js` removes itself and `addons/` so the generated app carries no set
 - Theme tokens and custom variants: `src/styles/theme.css`
 - Agent rules: `AGENTS.md` (`<!-- setup:* -->` blocks are rewritten by `start.js`)
 - Tauri add-on: `addons/desktop/` (`files/` is copied into selected apps)
+- Cloudflare Pages, Functions, D1, and deployment workflow: `addons/cloudflare/files/`

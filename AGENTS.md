@@ -2,16 +2,31 @@
 
 Rules for every AI agent working in this repository.
 
+<!-- setup:project -->
 ## Project
 - **Name**: DOGS Svelte Template (`@dogs/svelte-template`)
 - **What it is**: The starter every DOGS app is created from. `node start.js` asks for app details and target platforms, creates the app configuration, then removes setup-only files.
 - Keep `start.js` and `addons/` working whenever the template changes. A generated app must be ready to install and run.
-- DOGS apps may use Cloudflare Workers, D1, and R2. Stay inside the free tier: cache responses, lazy load, and keep data locally so each visitor makes as few requests as possible.
-- **Main tech stack**: Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, Drizzle ORM, Cloudflare serverless services, and optional Tauri 2 native shells.
-- Drizzle ORM is the ORM standard; do not add Prisma. Database changes require migrations, and schemas are the single source of truth.
+- **Main tech stack**: Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, Cloudflare Workers, D1, R2, Pages, and optional Tauri 2 native shells. No ORM.
+<!-- /setup:project -->
+
+## Cloudflare environments
+- Use Cloudflare Workers and D1 for serverless logic and relational data, with R2 for object storage when needed. Use Cloudflare bindings and D1 APIs directly. Stay inside the free tier, cache responses, lazy load, and keep data locally so each visitor makes as few requests as possible.
+- Database changes require versioned SQL migrations. SQL migrations are the source of truth; do not duplicate database schemas in application code.
+- All apps use three isolated environments:
+  - **Local**: `npx wrangler pages dev dist` runs Pages Functions on Workers locally with Miniflare. D1 uses a local SQLite database under `.wrangler/state/`; this data is machine-local and must never be committed or connected to production. Standalone Workers use `npx wrangler dev`.
+  - **Staging / Preview**: Cloudflare Pages preview deployments run on Cloudflare's edge and share a dedicated staging D1 database populated only with synthetic test data. GitHub Actions deploys branch pushes and same-repository pull requests here. Fork pull requests cannot access deployment secrets and are not deployed.
+  - **Production**: Cloudflare Pages and Workers run on Cloudflare's edge for live users and use the production D1 database. GitHub Actions deploys production only from `master`.
+- Never point local or staging at the production D1 database. Keep staging and production bindings separate in Cloudflare configuration.
+- All branch previews share staging D1. Keep migrations additive and backward compatible, use unique timestamped migration names, and never reset or destructively seed the shared staging database from a preview.
+- Native apps call the same Cloudflare APIs as the web app. Never connect a client app directly to D1 or embed Cloudflare credentials in browser code, Vite `VITE_*` variables, or native bundles.
+- Authenticate and authorize every protected Worker route, validate input on the server, and bound query sizes. Cache public reads and rate-limit expensive or write operations to protect Cloudflare quotas.
+- Test CORS from each shipped Tauri WebView origin. Allow only the app's web and native origins; do not use wildcard origins for credentialed requests.
+- Store secrets in Cloudflare Worker secrets or GitHub Actions secrets, use least-privilege API tokens, and never commit credentials. Preview builds must not receive production secrets.
+- SQL migration files are the only database schema source. Apply them to local D1 while developing and to staging before production. Test migrations against staging before promoting them. Destructive production migrations require a tested recovery plan and explicit backup plan.
 - Keep dependencies current at stable releases when changing them. Prefer small, maintained packages and avoid unnecessary dependencies.
-- Website deployments target Cloudflare Pages. Native and web release builds use manually triggered GitHub Actions workflows.
-- The generated app may target any selection of Web, Android, iOS, Windows, and Linux. Keep each selected target buildable without requiring unselected targets.
+- Website and Pages Functions deployments use GitHub Actions: every branch and same-repository pull request goes to preview; only `master` goes to production. Test preview deployments before merging.
+- Native release artifacts use the manually triggered GitHub Actions workflow. The generated app may target any selection of Web, Android, iOS, macOS, Windows, and Linux. Keep each selected target buildable without requiring unselected targets.
 
 ## Privacy
 Never write the owner's name, pseudonym, alias, or any personal information anywhere in the repo: code, comments, commits, docs. The company name DOGS is fine everywhere.
@@ -25,11 +40,11 @@ Never write the owner's name, pseudonym, alias, or any personal information anyw
 - Generated data, background-script output and local builds belong in `.gitignore`.
 
 ## Stack
-- Vite + Svelte 5, **JavaScript only** (no TypeScript). Add concise JSDoc types to complex functions and components.
-- Styling is **Tailwind CSS v4 plus plain CSS**. No SCSS, Sass, Less or other preprocessors.
+- Vite + Svelte, **JavaScript only** (no TypeScript). Add concise JSDoc types to complex functions and components.
+- Styling is **Tailwind CSS plus plain CSS**. No SCSS, Sass, Less or other preprocessors.
 - Icons come from `@lucide/svelte`, imported one at a time.
-- Drizzle ORM is used for database access when a database is needed. Keep schemas canonical, generate and commit migrations, and never introduce Prisma.
-- Tauri 2 is the native shell. Keep the web build functional on its own and feature-detect native APIs.
+- Use Cloudflare Workers bindings and D1's native APIs for database access; no ORM. Put schema changes in SQL migrations and commit them.
+- Tauri is the native shell. Keep the web build functional on its own and feature-detect native APIs.
 
 ## Dependencies
 Every dependency is a cost: bundle size, security surface, install scripts and upkeep. Keep the list as short as possible.
@@ -63,7 +78,7 @@ Every screen gets its own deliberate layout on mobile portrait, mobile landscape
 - Nothing is cropped or unreachable at any size, down to a 320×320 window.
 
 ## Layout stability and accessibility
-- Core branding (the DOGS / WEAREDOGS lettering) stays still. Reserve space for entering, animating, or leaving elements; animate with `transform` and `opacity`.
+- Layouts stay still during animations or page changes. Reserve space for entering, animating, or leaving elements; animate with `transform` and `opacity`. Animate everything possible, and always think creatively with animations. Scrollbars, tabs, text, it's all fair game. Transitions during page interactions are crucial to the DOGS design philosophy.
 - Use each device's controls: back-swipe on mobile, scroll wheel on desktop, touch-and-hold, and keyboard and remote focus on TVs. Use semantic markup, ARIA only where needed, visible focus states, and no keyboard traps.
 
 ## Browser support (the Potato Target)
