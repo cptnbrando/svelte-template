@@ -1,0 +1,17 @@
+[
+  {
+    "id": "commit",
+    "label": "Commit on the feature branch; I push and merge",
+    "rule": "Commit to your feature branch as you go, in small, described steps. When the task is verified, report the branch name so it can be reviewed, pushed and merged."
+  },
+  {
+    "id": "ship",
+    "label": "Commit, push the branch and open a draft PR",
+    "rule": "Commit to your feature branch as you go, push the branch, and open a draft pull request into master once the task is verified. Merging is done through review."
+  },
+  {
+    "id": "review",
+    "label": "Leave changes uncommitted for review",
+    "rule": "Leave your changes uncommitted on the feature branch, so the whole task can be reviewed as one working-tree diff. Report the branch name when the task is verified."
+  }
+]

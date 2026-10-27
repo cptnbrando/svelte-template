@@ -1,6 +1,6 @@
 /* Static fallback page from index.html, shown only on browsers too old for the app (Potato Target: Chrome 40).
    This CSS still passes through Lightning CSS at APP_CSS_TARGET, which merges longhands into newer shorthands,
-   so keep it plain: no custom properties (colors are literal copies of the @theme tokens in app.css), dvh, clamp(),
+   so keep it plain: no custom properties (colors are literal copies of the @theme tokens in theme.css), dvh, clamp(),
    flex gap, alpha colors, or all-four top/right/bottom/left (that becomes `inset`, which Chrome 40 can't read). */
 
 .legacy-fallback {

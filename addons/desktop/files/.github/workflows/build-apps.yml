@@ -1,0 +1,98 @@
+name: Build apps
+
+# Manual only: Actions -> Build apps -> Run workflow. Builds the web app and the Windows desktop app (x64 and arm64
+# installers plus portable exes) and attaches them to the run as downloadable artifacts. Nothing is published.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version without the v, e.g. 1.2.0 (blank uses package.json)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-apps-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "24"
+  VERSION_INPUT: ${{ inputs.version }}
+
+jobs:
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install
+        run: if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+
+      - name: Build
+        run: npm run build
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web
+          path: dist
+          if-no-files-found: error
+
+  windows:
+    name: Windows ${{ matrix.arch }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    env:
+      # No code-signing certificate: skip the search for one
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Pick version
+        run: |
+          set -euo pipefail
+          version="${VERSION_INPUT:-$(node -p "require('./package.json').version")}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Version must look like 1.2.0 or 1.2.0-beta.1, got '$version'." >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      # electron-builder downloads its own Electron, so Electron's install script isn't needed here
+      - name: Install
+        run: |
+          for dir in . electron; do
+            if [ -f "$dir/package-lock.json" ]; then npm ci --prefix "$dir" --no-audit --no-fund
+            else npm install --prefix "$dir" --no-audit --no-fund; fi
+          done
+
+      - name: Build web app into the shell
+        run: npm run desktop:sync
+
+      - name: Package
+        working-directory: electron
+        run: npx electron-builder build -c ./electron-builder.config.json --win --${{ matrix.arch }} --publish never -c.extraMetadata.version="$VERSION"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-${{ matrix.arch }}
+          path: electron/release/*.exe
+          if-no-files-found: error
