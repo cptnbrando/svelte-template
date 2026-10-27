@@ -74,7 +74,7 @@
       <!-- Right: DOGS Hero Logo (sized dynamically to prevent overflow) -->
       <div class="flex items-center justify-center order-1 sm:order-2 short:hidden">
         <div
-          class="relative w-full max-w-[130px] sm:max-w-[180px] md:max-w-[220px] lg:max-w-[260px] 2xl:max-w-[360px] aspect-square flex items-center justify-center bg-card/30 border border-white/5 rounded-2xl p-3 backdrop-blur-md shadow-2xl transition-all duration-500 hover:border-neon-red/20"
+          class="relative w-full max-w-32.5 sm:max-w-45 md:max-w-55 lg:max-w-65 2xl:max-w-90 aspect-square flex items-center justify-center bg-card/30 border border-white/5 rounded-2xl p-3 backdrop-blur-md shadow-2xl transition-all duration-500 hover:border-neon-red/20"
         >
           <div
             class="absolute inset-0 bg-radial from-neon-red/5 to-transparent rounded-2xl pointer-events-none"
