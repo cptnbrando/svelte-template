@@ -27,15 +27,22 @@ This app is Cloudflare serverless. The deployment target depends on what it need
 
 `master` is the only root branch. There is no `main` branch. Keep `master` as the GitHub default branch and the Cloudflare Pages production branch; all other work happens on feature branches merged into `master`.
 
-## The three environments
+## Environments
 
-Never use production data in local development or staging. Staging contains synthetic test data only. Native apps call Cloudflare APIs and never connect directly to D1.
+Never use production data in local development or staging. Native apps call Cloudflare APIs and never connect directly to D1.
 
-- **Local (your laptop)**: Run Pages Functions on Workers with `npm run cloudflare:dev` (`npx wrangler pages dev ../dist` from `api/`). Wrangler uses Miniflare to simulate Workers and D1. Standalone Workers run with `npx wrangler dev`. Local D1 uses a SQLite file under `api/.wrangler/state/`; it stays on your machine and is ignored by Git. Use SQL migrations and test data.
-- **Staging / Preview (pull requests and testing)**: GitHub Actions deploys branch and pull request changes to Cloudflare Pages preview deployments on Cloudflare's edge. All previews share a dedicated staging D1 database with synthetic test data; keep migrations additive and do not reset shared staging data.
-- **Production (live users)**: Cloudflare Pages and Workers serve production traffic on Cloudflare's edge and use a separate production D1 database. GitHub Actions deploys production only from `master`.
+**Static Pages app (no data, no logins)**: local and production only, no staging.
 
-Configure separate preview and production D1 bindings in Cloudflare. Set a least-privilege Cloudflare API token and account ID as GitHub repository secrets; do not commit credentials. Fork pull requests cannot access deployment secrets and are not deployed.
+- **Local**: `npm run dev`, or `npm run build` and `npx vite preview` to check the production build.
+- **Production**: Cloudflare Pages serves the static build. GitHub Actions deploys only from `master`; other branches are not deployed.
+
+**Data app on Workers**: local, staging and production.
+
+- **Local (your laptop)**: run the Worker and its API with `npx wrangler dev` from `api/`. Wrangler uses Miniflare to simulate Workers and D1. Local D1 uses a SQLite file under `api/.wrangler/state/`; it stays on your machine and is ignored by Git. Use SQL migrations and test data.
+- **Staging / Preview (pull requests and testing)**: a staging Worker environment serves each branch push and same-repository pull request on its own Cloudflare Worker preview URL. All previews share a dedicated staging D1 database (and staging R2 bucket when used) with synthetic test data only; keep migrations additive and do not reset shared staging data.
+- **Production (live users)**: the production Worker serves live traffic with a separate production D1 database and R2 buckets. GitHub Actions deploys production only from `master`.
+
+Configure separate staging and production D1 and R2 bindings. Set a least-privilege Cloudflare API token and account ID as GitHub repository secrets; do not commit credentials. Fork pull requests cannot access deployment secrets and are not deployed.
 
 ### Before the first deploy
 

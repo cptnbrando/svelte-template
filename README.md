@@ -13,23 +13,20 @@ DOGS apps are Cloudflare serverless. The deployment target depends on what the a
 
 `master` is the only root branch, for this template and every app created from it. There is no `main` branch. Keep `master` as the GitHub default branch and the Cloudflare Pages production branch; all other work happens on feature branches merged into `master`.
 
-## The three environments
+## Environments
 
-All apps use separate local, staging, and production environments.
+### Static Pages apps: local and production, no staging
 
-### Local (your laptop)
+- **Local**: `npm run dev`, or `npm run build` and `npx vite preview` to check the production build.
+- **Production**: Cloudflare Pages serves the static build. GitHub Actions deploys only from `master`; other branches are not deployed.
 
-Run Pages Functions on Workers with `npm run cloudflare:dev` (`npx wrangler pages dev ../dist` from `api/`). Wrangler uses Miniflare to simulate Workers and D1 locally. Standalone Workers run with `npx wrangler dev`. Local D1 data is stored in a SQLite file under `api/.wrangler/state/`, stays on your machine, and is ignored by Git. Use SQL migrations and test data here.
+### Data apps on Workers: local, staging and production
 
-### Staging / Preview (pull requests and testing)
+- **Local (your laptop)**: run the Worker and its API with `npx wrangler dev` from `api/`. Wrangler uses Miniflare to simulate Workers and D1 locally. Local D1 data is stored in a SQLite file under `api/.wrangler/state/`, stays on your machine, and is ignored by Git. Use SQL migrations and test data here.
+- **Staging / Preview (pull requests and testing)**: a staging Worker environment serves each branch push and same-repository pull request on its own Cloudflare Worker preview URL. All previews share a dedicated staging D1 database (and staging R2 bucket when used) containing synthetic test data. Keep preview migrations additive and do not reset this shared database.
+- **Production (live users)**: the production Worker serves live traffic with a separate production D1 database and R2 buckets. GitHub Actions deploys production only when changes reach `master`.
 
-Staging runs on Cloudflare's global edge network through a Cloudflare Pages preview deployment. GitHub Actions deploys branch and pull request changes to preview, where all previews share a dedicated staging D1 database containing synthetic test data. Keep preview migrations additive and do not reset this shared database.
-
-### Production (live users)
-
-Production runs on Cloudflare's global edge network through Cloudflare Pages and Workers. It uses a separate production D1 database. GitHub Actions deploys production only when changes reach `master`.
-
-Cloudflare Pages and GitHub Actions must have separate preview and production D1 bindings configured. Configure the Actions Cloudflare API token and account ID as repository secrets; never put credentials in source files. Preview contains synthetic test data only. Fork pull requests cannot access deployment secrets and are not deployed.
+Staging and production Workers must have separate D1 and R2 bindings. Configure the Actions Cloudflare API token and account ID as repository secrets; never put credentials in source files. Preview contains synthetic test data only. Fork pull requests cannot access deployment secrets and are not deployed.
 
 ### Before the first deploy
 

@@ -17,19 +17,23 @@ Rules for every AI agent working in this repository.
 - Use Cloudflare Workers and D1 for serverless logic and relational data, with R2 for object storage when needed. Use Cloudflare bindings and D1 APIs directly. Stay inside the free tier, cache responses, lazy load, and keep data locally so each visitor makes as few requests as possible.
 - Server code lives in `api/`: Pages Functions in `api/functions/`, SQL migrations in `api/migrations/`, Wrangler config in `api/wrangler.jsonc`. The optional Tauri shell lives in `src/tauri/`.
 - Database changes require versioned SQL migrations. SQL migrations are the source of truth; do not duplicate database schemas in application code.
-- All apps use three isolated environments:
-  - **Local**: `npx wrangler pages dev ../dist`, run from `api/`, runs Pages Functions on Workers locally with Miniflare. D1 uses a local SQLite database under `api/.wrangler/state/`; this data is machine-local and must never be committed or connected to production. Standalone Workers use `npx wrangler dev`.
-  - **Staging / Preview**: Cloudflare Pages preview deployments run on Cloudflare's edge and share a dedicated staging D1 database populated only with synthetic test data. GitHub Actions deploys branch pushes and same-repository pull requests here. Fork pull requests cannot access deployment secrets and are not deployed.
-  - **Production**: Cloudflare Pages and Workers run on Cloudflare's edge for live users and use the production D1 database. GitHub Actions deploys production only from `master`.
-- Never point local or staging at the production D1 database. Keep staging and production bindings separate in Cloudflare configuration.
-- All branch previews share staging D1. Keep migrations additive and backward compatible, use unique timestamped migration names, and never reset or destructively seed the shared staging database from a preview.
+- Environments depend on the deployment target, and each one is isolated:
+  - **Static Pages apps** have two environments and no staging:
+    - **Local**: `npm run dev`, or `npm run build` and `npx vite preview` to check the production build.
+    - **Production**: Cloudflare Pages serves the static build. GitHub Actions deploys only from `master`; other branches are not deployed.
+  - **Data apps on Workers** have three environments:
+    - **Local**: `npx wrangler dev`, run from `api/`, runs the Worker and its API locally with Miniflare. D1 uses a local SQLite database under `api/.wrangler/state/`; this data is machine-local and must never be committed or connected to production.
+    - **Staging / Preview**: a staging Worker environment whose Cloudflare Worker preview URLs serve each branch push and same-repository pull request. It is bound to a dedicated staging D1 database (and staging R2 bucket when used) holding only synthetic test data. Fork pull requests cannot access deployment secrets and are not deployed.
+    - **Production**: the production Worker serves live users with the production D1 database and R2 buckets. GitHub Actions deploys production only from `master`.
+- Never point local or staging at the production D1 database. Keep staging and production bindings separate in Wrangler configuration.
+- All Worker previews share staging D1. Keep migrations additive and backward compatible, use unique timestamped migration names, and never reset or destructively seed the shared staging database from a preview.
 - Native apps call the same Cloudflare APIs as the web app. Never connect a client app directly to D1 or embed Cloudflare credentials in browser code, Vite `VITE_*` variables, or native bundles.
 - Authenticate and authorize every protected Worker route, validate input on the server, and bound query sizes. Cache public reads and rate-limit expensive or write operations to protect Cloudflare quotas.
 - Test CORS from each shipped Tauri WebView origin. Allow only the app's web and native origins; do not use wildcard origins for credentialed requests.
 - Store secrets in Cloudflare Worker secrets or GitHub Actions secrets, use least-privilege API tokens, and never commit credentials. Preview builds must not receive production secrets.
 - SQL migration files are the only database schema source. Apply them to local D1 while developing and to staging before production. Test migrations against staging before promoting them. Destructive production migrations require a tested recovery plan and explicit backup plan.
 - Keep dependencies current at stable releases when changing them. Prefer small, maintained packages and avoid unnecessary dependencies.
-- Website and Pages Functions deployments use GitHub Actions: every branch and same-repository pull request goes to preview; only `master` goes to production. Test preview deployments before merging.
+- Deployments use GitHub Actions. Static Pages apps deploy only `master`, straight to production. Data apps upload a Worker preview against staging for every branch and same-repository pull request, and deploy production only from `master`. Test Worker previews before merging.
 - Native release artifacts use the manually triggered GitHub Actions workflow. The generated app may target any selection of Web, Android, iOS, macOS, Windows, and Linux. Keep each selected target buildable without requiring unselected targets.
 
 ## Privacy
