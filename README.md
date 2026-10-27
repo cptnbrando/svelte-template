@@ -2,6 +2,10 @@
 
 Starter for DOGS apps built with Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, and Cloudflare Workers, D1, R2, and Pages. Database access uses native Cloudflare bindings and D1 APIs; no ORM is used. Native apps use Tauri 2 and share the same Cloudflare APIs.
 
+## Branches
+
+`master` is the only root branch, for this template and every app created from it. There is no `main` branch. Keep `master` as the GitHub default branch and the Cloudflare Pages production branch; all other work happens on feature branches merged into `master`.
+
 ## The three environments
 
 All apps use separate local, staging, and production environments.
@@ -44,7 +48,7 @@ npm install
 
 Setup asks for the package name, title, description, target platforms, git workflow, and optional app details. Target platforms come from a checkbox list (arrow keys move, space toggles, `a` or the "all" row checks everything, Enter confirms), so any combination of Web, Android, iOS, macOS, Windows, and Linux works. Piped answers (`node start.js < answers.txt`) give platforms as comma-separated numbers instead. Every generated app receives Cloudflare Pages, Functions, D1, and branch deployment workflows. Native selections also add a Tauri 2 shell and a manually triggered GitHub Actions workflow that builds selected targets on compatible runners.
 
-Then `start.js` removes itself and `addons/` so the generated app carries no setup code. `start.ps1` and `start.sh` are shortcuts for `node start.js`.
+If the folder's current branch is `main` (for example after `git init`), setup renames it to `master`. Then `start.js` removes itself and `addons/` so the generated app carries no setup code. `start.ps1` and `start.sh` are shortcuts for `node start.js`.
 
 ## Working on the template
 

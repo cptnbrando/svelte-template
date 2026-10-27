@@ -22,6 +22,8 @@ const PLATFORMS = [
 ];
 const ALL_PLATFORMS_OPTION = { label: 'all', value: 'all' };
 const TEMPLATE_REMOTE_HINT = 'svelte-template';
+const ROOT_BRANCH = 'master';
+const FORBIDDEN_BRANCH = 'main';
 const APP_ID_PREFIX = 'net.dogs.';
 const DEFAULT_CLOUDFLARE_NAME = 'dogs-app';
 const DATA_RULE = 'Stay inside the free tier: cache responses, lazy load, and keep data locally so each visitor makes as few requests as possible.';
@@ -252,6 +254,18 @@ function isTemplateClone() {
   }
 }
 
+/** Renames a `main` branch (from `git init` or a host default) to `master`, the only root branch DOGS apps use. */
+function useMasterBranch() {
+  const git = (command) => execSync(`git ${command}`, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  try {
+    if (git('symbolic-ref --short HEAD') !== FORBIDDEN_BRANCH) return;
+    git(`branch -m ${FORBIDDEN_BRANCH} ${ROOT_BRANCH}`);
+    console.log(`Renamed the ${FORBIDDEN_BRANCH} branch to ${ROOT_BRANCH}.`);
+  } catch {
+    // Not a git repo, or the rename failed; setup carries on either way.
+  }
+}
+
 async function main() {
   console.log(`\n${COLOR.cyan}--- DOGS app setup ---${COLOR.reset}\n`);
   if (!existsSync(ADDONS_DIR)) return console.log('Setup already ran here: addons/ is gone.');
@@ -303,6 +317,7 @@ async function main() {
   writeFileSync(join(ROOT, 'README.md'), readme);
   fillPlaceholders('README.md', values);
   SETUP_PATHS.forEach((path) => rmSync(join(ROOT, path), { recursive: true, force: true }));
+  useMasterBranch();
 
   console.log(`\n${COLOR.green}${title} is ready.${COLOR.reset} Next:`);
   console.log('  npm install');

@@ -16,6 +16,10 @@ npm run dev
 - `api/`: Cloudflare Pages Functions (`api/functions/`), SQL migrations (`api/migrations/`) and `wrangler.jsonc`. Run Wrangler from this folder.
 - `src/tauri/`: the Tauri 2 native shell, when native platforms are selected.
 
+## Branches
+
+`master` is the only root branch. There is no `main` branch. Keep `master` as the GitHub default branch and the Cloudflare Pages production branch; all other work happens on feature branches merged into `master`.
+
 ## The three environments
 
 Never use production data in local development or staging. Staging contains synthetic test data only. Native apps call Cloudflare APIs and never connect directly to D1.
