@@ -6,8 +6,8 @@
   },
   {
     "id": "ship",
-    "label": "Commit, push the branch and open a draft PR",
-    "rule": "Commit to your feature branch as you go, push the branch, and open a draft pull request into master once the task is verified. Merging is done through review."
+    "label": "Commit, push the branch and open a PR",
+    "rule": "Commit to your feature branch as you go, push the branch, and open a pull request into master once the task is verified. Merging is done through review."
   },
   {
     "id": "review",

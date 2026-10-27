@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* The optional Tauri shell (Rust and native build output) has no class names to scan */
+@source not "./tauri";
 /* Colors, theme tokens and custom variants (short:, ultrawide:) */
 @import "./styles/theme.css";
 @import "./styles/legacy-fallback.css";

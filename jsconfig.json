@@ -35,5 +35,7 @@
     "src/**/*.d.ts",
     "src/**/*.js",
     "src/**/*.svelte"
-  ]
+  ],
+  /** The optional Tauri shell is Rust, not app JavaScript. */
+  "exclude": ["src/tauri"]
 }

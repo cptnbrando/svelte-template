@@ -12,9 +12,10 @@ Rules for every AI agent working in this repository.
 
 ## Cloudflare environments
 - Use Cloudflare Workers and D1 for serverless logic and relational data, with R2 for object storage when needed. Use Cloudflare bindings and D1 APIs directly. Stay inside the free tier, cache responses, lazy load, and keep data locally so each visitor makes as few requests as possible.
+- Server code lives in `api/`: Pages Functions in `api/functions/`, SQL migrations in `api/migrations/`, Wrangler config in `api/wrangler.jsonc`. The optional Tauri shell lives in `src/tauri/`.
 - Database changes require versioned SQL migrations. SQL migrations are the source of truth; do not duplicate database schemas in application code.
 - All apps use three isolated environments:
-  - **Local**: `npx wrangler pages dev dist` runs Pages Functions on Workers locally with Miniflare. D1 uses a local SQLite database under `.wrangler/state/`; this data is machine-local and must never be committed or connected to production. Standalone Workers use `npx wrangler dev`.
+  - **Local**: `npx wrangler pages dev ../dist`, run from `api/`, runs Pages Functions on Workers locally with Miniflare. D1 uses a local SQLite database under `api/.wrangler/state/`; this data is machine-local and must never be committed or connected to production. Standalone Workers use `npx wrangler dev`.
   - **Staging / Preview**: Cloudflare Pages preview deployments run on Cloudflare's edge and share a dedicated staging D1 database populated only with synthetic test data. GitHub Actions deploys branch pushes and same-repository pull requests here. Fork pull requests cannot access deployment secrets and are not deployed.
   - **Production**: Cloudflare Pages and Workers run on Cloudflare's edge for live users and use the production D1 database. GitHub Actions deploys production only from `master`.
 - Never point local or staging at the production D1 database. Keep staging and production bindings separate in Cloudflare configuration.

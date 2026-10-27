@@ -8,7 +8,7 @@ All apps use separate local, staging, and production environments.
 
 ### Local (your laptop)
 
-Run Pages Functions on Workers with `npm run cloudflare:dev` (`npx wrangler pages dev dist`). Wrangler uses Miniflare to simulate Workers and D1 locally. Standalone Workers run with `npx wrangler dev`. Local D1 data is stored in a SQLite file under `.wrangler/state/`, stays on your machine, and is ignored by Git. Use SQL migrations and test data here.
+Run Pages Functions on Workers with `npm run cloudflare:dev` (`npx wrangler pages dev ../dist` from `api/`). Wrangler uses Miniflare to simulate Workers and D1 locally. Standalone Workers run with `npx wrangler dev`. Local D1 data is stored in a SQLite file under `api/.wrangler/state/`, stays on your machine, and is ignored by Git. Use SQL migrations and test data here.
 
 ### Staging / Preview (pull requests and testing)
 
@@ -22,7 +22,7 @@ Cloudflare Pages and GitHub Actions must have separate preview and production D1
 
 ### Before the first deploy
 
-Create a Pages Direct Upload project with `npx --yes wrangler pages project create` and use the `name` from `wrangler.jsonc`; select `master` as its production branch. Direct Upload keeps GitHub Actions as the deployment path. Create separate staging and production D1 databases, then replace the matching database ID placeholders in `wrangler.jsonc`. Add `CLOUDFLARE_API_TOKEN` (Pages and D1 edit access) and `CLOUDFLARE_ACCOUNT_ID` as GitHub repository secrets. The generated `deploy-cloudflare.yml` applies the environment's SQL migrations and deploys previews for branch pushes and pull requests; pushes to `master` deploy production.
+Create a Pages Direct Upload project with `npx --yes wrangler pages project create` and use the `name` from `api/wrangler.jsonc`; select `master` as its production branch. Direct Upload keeps GitHub Actions as the deployment path. Create separate staging and production D1 databases, then replace the matching database ID placeholders in `api/wrangler.jsonc`. Add `CLOUDFLARE_API_TOKEN` (Pages and D1 edit access) and `CLOUDFLARE_ACCOUNT_ID` as GitHub repository secrets. The generated `deploy-cloudflare.yml` applies the environment's SQL migrations and deploys previews for branch pushes and pull requests; pushes to `master` deploy production.
 
 For a local Pages Functions and D1 session, run `npm install`, `npm run build`, then `npm run cloudflare:dev`. Run local SQL migrations with `npm run cloudflare:db:migrate:local`. The local database is isolated from Cloudflare and is not a copy of staging or production.
 
@@ -50,5 +50,5 @@ Then `start.js` removes itself and `addons/` so the generated app carries no set
 
 - Theme tokens and custom variants: `src/styles/theme.css`
 - Agent rules: `AGENTS.md` (`<!-- setup:* -->` blocks are rewritten by `start.js`)
-- Tauri add-on: `addons/desktop/` (`files/` is copied into selected apps)
-- Cloudflare Pages, Functions, D1, and deployment workflow: `addons/cloudflare/files/`
+- Tauri add-on: `addons/desktop/` (`files/` is copied into selected apps; the shell lands in `src/tauri/`)
+- Cloudflare Pages, Functions, D1, and deployment workflow: `addons/cloudflare/files/` (generated apps get `api/functions/`, `api/migrations/` and `api/wrangler.jsonc`)

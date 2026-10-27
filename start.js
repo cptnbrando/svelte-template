@@ -93,7 +93,7 @@ function fillPlaceholders(file, values) {
 /** Copies the Tauri shell and merges its scripts and dependencies into the app. */
 function addDesktop(pkg, values, platforms) {
   cpSync(join(DESKTOP_DIR, 'files'), ROOT, { recursive: true });
-  fillPlaceholders('src-tauri/tauri.conf.json', values);
+  fillPlaceholders('src/tauri/tauri.conf.json', values);
   writeBuildWorkflow(platforms);
   const extra = JSON.parse(readFileSync(join(DESKTOP_DIR, 'package.json'), 'utf8'));
   for (const field of Object.keys(extra)) pkg[field] = { ...pkg[field], ...extra[field] };
@@ -106,10 +106,10 @@ function addDesktop(pkg, values, platforms) {
 /** Adds the Pages Functions, D1 bindings, local Wrangler commands, and environment deploy workflow. */
 function addCloudflare(pkg, app) {
   cpSync(join(CLOUDFLARE_DIR, 'files'), ROOT, { recursive: true });
-  fillPlaceholders('wrangler.jsonc', app.values);
+  fillPlaceholders('api/wrangler.jsonc', app.values);
   fillPlaceholders('.github/workflows/deploy-cloudflare.yml', app.values);
-  pkg.scripts['cloudflare:dev'] = 'npx --yes wrangler pages dev dist --persist-to .wrangler/state';
-  pkg.scripts['cloudflare:db:migrate:local'] = `npx --yes wrangler d1 migrations apply ${app.cfName}-production --local --persist-to .wrangler/state`;
+  pkg.scripts['cloudflare:dev'] = 'cd api && npx --yes wrangler pages dev ../dist --persist-to .wrangler/state';
+  pkg.scripts['cloudflare:db:migrate:local'] = `cd api && npx --yes wrangler d1 migrations apply ${app.cfName}-production --local --persist-to .wrangler/state`;
 }
 
 /** Adds a manually triggered workflow that builds only the selected release targets. */

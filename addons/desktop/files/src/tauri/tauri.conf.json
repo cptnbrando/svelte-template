@@ -7,7 +7,7 @@
     "beforeDevCommand": "npm run dev -- --host 0.0.0.0",
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
+    "frontendDist": "../../dist"
   },
   "app": {
     "windows": [{ "title": "__APP_TITLE__", "width": 1200, "height": 800, "minWidth": 320, "minHeight": 320 }],

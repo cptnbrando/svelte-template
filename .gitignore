@@ -18,6 +18,10 @@ dist-ssr
 *.local
 .wrangler/
 
+# Tauri native build output
+src/tauri/target/
+src/tauri/gen/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

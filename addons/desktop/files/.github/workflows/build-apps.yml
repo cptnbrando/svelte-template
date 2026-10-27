@@ -99,8 +99,8 @@ jobs:
         with:
           name: ${{ matrix.platform }}
           path: |
-            src-tauri/target/**/release/bundle/**
-            src-tauri/gen/**/build/outputs/**/*
-            src-tauri/gen/apple/build/**/**/*.ipa
-            src-tauri/gen/apple/build/**/**/*.app
+            src/tauri/target/**/release/bundle/**
+            src/tauri/gen/**/build/outputs/**/*
+            src/tauri/gen/apple/build/**/**/*.ipa
+            src/tauri/gen/apple/build/**/**/*.app
           if-no-files-found: error
