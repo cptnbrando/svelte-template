@@ -1,15 +1,8 @@
 name: Build apps
 
-# Manual only: Actions -> Build apps -> Run workflow. Builds the web app and the Windows desktop app (x64 and arm64
-# installers plus portable exes) and attaches them to the run as downloadable artifacts. Nothing is published.
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version without the v, e.g. 1.2.0 (blank uses package.json)"
-        required: false
-        type: string
-
 permissions:
   contents: read
 
@@ -19,80 +12,95 @@ concurrency:
 
 env:
   NODE_VERSION: "24"
-  VERSION_INPUT: ${{ inputs.version }}
 
 jobs:
   web:
     name: Web
+    if: contains(fromJSON('__PLATFORMS_JSON__'), 'web')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
-
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-
+          cache: npm
       - name: Install
         run: if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
-
-      - name: Build
-        run: npm run build
-
+      - run: npm run build
       - uses: actions/upload-artifact@v7
         with:
           name: web
           path: dist
           if-no-files-found: error
 
-  windows:
-    name: Windows ${{ matrix.arch }}
-    runs-on: windows-latest
-    timeout-minutes: 30
+  native:
+    name: ${{ matrix.platform }}
+    if: contains(fromJSON('__PLATFORMS_JSON__'), matrix.platform)
     strategy:
       fail-fast: false
       matrix:
-        arch: [x64, arm64]
-    env:
-      # No code-signing certificate: skip the search for one
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        include:
+          - platform: windows
+            os: windows-latest
+            args: --bundles msi,nsis
+            mobile: ''
+          - platform: linux
+            os: ubuntu-24.04
+            args: --bundles deb,rpm,appimage
+            mobile: ''
+          - platform: macos
+            os: macos-15
+            args: --bundles dmg,app
+            mobile: ''
+          - platform: android
+            os: ubuntu-24.04
+            args: --apk
+            mobile: android
+          - platform: ios
+            os: macos-15
+            args: ''
+            mobile: ios
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v6
-
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-
-      - name: Pick version
-        run: |
-          set -euo pipefail
-          version="${VERSION_INPUT:-$(node -p "require('./package.json').version")}"
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "Version must look like 1.2.0 or 1.2.0-beta.1, got '$version'." >&2
-            exit 1
-          fi
-          echo "VERSION=$version" >> "$GITHUB_ENV"
-
-      # electron-builder downloads its own Electron, so Electron's install script isn't needed here
+          cache: npm
       - name: Install
-        run: |
-          for dir in . electron; do
-            if [ -f "$dir/package-lock.json" ]; then npm ci --prefix "$dir" --no-audit --no-fund
-            else npm install --prefix "$dir" --no-audit --no-fund; fi
-          done
-
-      - name: Build web app into the shell
-        run: npm run desktop:sync
-
-      - name: Package
-        working-directory: electron
-        run: npx electron-builder build -c ./electron-builder.config.json --win --${{ matrix.arch }} --publish never -c.extraMetadata.version="$VERSION"
-
+        run: if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Android Rust target
+        if: matrix.platform == 'android'
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+      - name: Install iOS Rust targets
+        if: matrix.platform == 'ios'
+        run: rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev patchelf
+      - name: Install Android tools
+        if: matrix.platform == 'android'
+        uses: android-actions/setup-android@v3
+      - name: Initialize mobile project
+        if: matrix.platform == 'android' || matrix.platform == 'ios'
+        run: npx tauri ${{ matrix.platform }} init
+      - name: Build native app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: ${{ matrix.args }}
+          mobile: ${{ matrix.mobile }}
       - uses: actions/upload-artifact@v7
         with:
-          name: windows-${{ matrix.arch }}
-          path: electron/release/*.exe
+          name: ${{ matrix.platform }}
+          path: |
+            src-tauri/target/**/release/bundle/**
+            src-tauri/gen/**/build/outputs/**/*
+            src-tauri/gen/apple/build/**/**/*.ipa
+            src-tauri/gen/apple/build/**/**/*.app
           if-no-files-found: error

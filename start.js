@@ -1,9 +1,8 @@
 // DOGS app setup. Run once in a fresh copy of the template: `node start.js`.
-// Asks what the new app is, fills in package.json, index.html, the manifest, README.md and AGENTS.md, optionally
-// adds the Capacitor desktop shell (addons/desktop/), then deletes itself and addons/ so the app starts clean.
+// Asks what the new app is, selects target platforms, writes project files, then removes setup-only files.
 // Node built-ins only, so it runs before `npm install`.
 import { execSync } from 'node:child_process';
-import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 
@@ -13,16 +12,18 @@ const DESKTOP_DIR = join(ADDONS_DIR, 'desktop');
 const GIT_POLICIES = JSON.parse(readFileSync(join(ADDONS_DIR, 'agents', 'git-policies.json'), 'utf8'));
 const SETUP_PATHS = ['start.js', 'start.ps1', 'start.sh', 'addons'];
 // Files that carry __APP_*__ placeholders once the desktop shell is copied in
-const DESKTOP_TEMPLATED_FILES = [
-  'capacitor.config.json',
-  'electron/capacitor.config.json',
-  'electron/package.json',
-  'electron/electron-builder.config.json',
+const PLATFORMS = [
+  { label: 'Web', value: 'web' },
+  { label: 'Android', value: 'android' },
+  { label: 'iOS', value: 'ios' },
+  { label: 'macOS', value: 'macos' },
+  { label: 'Windows', value: 'windows' },
+  { label: 'Linux', value: 'linux' },
 ];
 const TEMPLATE_REMOTE_HINT = 'svelte-template';
 const APP_ID_PREFIX = 'net.wearedogs.';
 const DATA_RULE = 'Stay inside the free tier: cache responses, lazy load, and keep data locally so each visitor makes as few requests as possible.';
-const TEMPLATE_CREDIT = 'Created from the DOGS Svelte template: Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc.';
+const TEMPLATE_CREDIT = 'Created from the DOGS Svelte template: Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, Drizzle ORM, and optional Tauri 2.';
 const MARKER = (name) => new RegExp(`<!-- setup:${name} -->\\n?([\\s\\S]*?)<!-- /setup:${name} -->\\n?`);
 const COLOR = { cyan: '\x1b[36m', green: '\x1b[32m', yellow: '\x1b[33m', dim: '\x1b[2m', reset: '\x1b[0m' };
 
@@ -65,33 +66,61 @@ async function confirm(question, fallback) {
  */
 function fillPlaceholders(file, values) {
   const path = join(ROOT, file);
-  const escape = extname(file) === '.json' ? (value) => JSON.stringify(value).slice(1, -1) : (value) => value;
+  const escape = ['.json', '.toml'].includes(extname(file)) ? (value) => JSON.stringify(value).slice(1, -1) : (value) => value;
   const text = readFileSync(path, 'utf8').replace(/__APP_[A-Z]+__/g, (token) => escape(values[token] ?? token));
   writeFileSync(path, text);
 }
 
-/** Copies the desktop shell and the build workflow in, and merges its scripts and packages into package.json. */
-function addDesktop(pkg, values) {
+/** Copies the Tauri shell and merges its scripts and dependencies into the app. */
+function addDesktop(pkg, values, platforms) {
   cpSync(join(DESKTOP_DIR, 'files'), ROOT, { recursive: true });
-  DESKTOP_TEMPLATED_FILES.forEach((file) => fillPlaceholders(file, values));
+  fillPlaceholders('src-tauri/tauri.conf.json', values);
+  writeBuildWorkflow(platforms);
   const extra = JSON.parse(readFileSync(join(DESKTOP_DIR, 'package.json'), 'utf8'));
   for (const field of Object.keys(extra)) pkg[field] = { ...pkg[field], ...extra[field] };
+  pkg.scripts['tauri:build:platforms'] = `node scripts/build-platforms.js ${platforms.filter((platform) => platform !== 'web').join(' ')}`;
+  const scriptDir = join(ROOT, 'scripts');
+  mkdirSync(scriptDir, { recursive: true });
+  writeFileSync(join(scriptDir, 'build-platforms.js'), `import { spawnSync } from 'node:child_process';\n\nconst COMMANDS = { android: ['tauri', 'android', ['build']], ios: ['tauri', 'ios', ['build']], macos: ['tauri', 'build', []], windows: ['tauri', 'build', []], linux: ['tauri', 'build', []] };\nconst selected = process.argv.slice(2).filter((platform) => Object.hasOwn(COMMANDS, platform));\nfor (const platform of selected) {\n  const [command, subcommand, args] = COMMANDS[platform];\n  const result = spawnSync('npx', [command, subcommand, ...args], { stdio: 'inherit', shell: process.platform === 'win32' });\n  if (result.status !== 0) process.exit(result.status ?? 1);\n}\n`);
+}
+
+/** Adds a manually triggered workflow that builds only the selected release targets. */
+function writeBuildWorkflow(platforms) {
+  const workflowPath = join(ROOT, '.github', 'workflows', 'build-apps.yml');
+  if (!existsSync(workflowPath)) {
+    mkdirSync(join(ROOT, '.github', 'workflows'), { recursive: true });
+    cpSync(join(DESKTOP_DIR, 'files', '.github', 'workflows', 'build-apps.yml'), workflowPath);
+  }
+  const workflow = readFileSync(workflowPath, 'utf8').replace('__PLATFORMS_JSON__', JSON.stringify(platforms));
+  writeFileSync(workflowPath, workflow);
+}
+
+/** Displays a checkbox-style multi-select list; enter selected item numbers separated by commas. */
+async function selectPlatforms() {
+  console.log(`\n${COLOR.yellow}Target platforms${COLOR.reset}: choose any combination.`);
+  PLATFORMS.forEach((platform, index) => console.log(`  [ ] ${index + 1}. ${platform.label}`));
+  const selected = await ask('Select numbers separated by commas', '1');
+  const indexes = new Set(selected.split(',').map((value) => Number(value.trim()) - 1));
+  return PLATFORMS.filter((_platform, index) => indexes.has(index)).map((platform) => platform.value);
 }
 
 /**
  * Writes AGENTS.md: the app's own Project section, the chosen git policy and, with the desktop shell, its rules.
- * @param {{ title: string, name: string, description: string, statements: string[], dataUrl: string, gitRule: string, desktop: boolean }} app
+ * @param {{ title: string, name: string, description: string, statements: string[], dataUrl: string, gitRule: string, platforms: string[] }} app
  */
 function writeAgents(app) {
   const project = [
     '## Project',
     `- **Name**: ${app.title} (\`${app.name}\`)`,
     `- **What it is**: ${app.description}`,
+    '- **Main tech stack**: Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, Drizzle ORM, Cloudflare serverless services, and optional Tauri 2 native shells.',
     ...app.statements.map((statement) => `- ${statement}`),
     ...(app.dataUrl ? [`- **Data**: Loaded from ${app.dataUrl}. ${DATA_RULE}`] : []),
     `- ${TEMPLATE_CREDIT}`,
   ].join('\n');
-  const desktop = app.desktop ? readFileSync(join(DESKTOP_DIR, 'agents-section.md'), 'utf8') : '';
+  const desktop = app.platforms.some((platform) => platform !== 'web')
+    ? readFileSync(join(DESKTOP_DIR, 'agents-section.md'), 'utf8').replace('__PLATFORMS__', app.platforms.join(', '))
+    : '';
   const path = join(ROOT, 'AGENTS.md');
   const text = readFileSync(path, 'utf8')
     .replace(MARKER('project'), () => `${project}\n`)
@@ -135,8 +164,8 @@ async function main() {
   const title = await ask('App title (browser tab, window, installer)', name);
   const description = await ask('One-line description', `${title}, made by DOGS.`);
 
-  console.log(`\n${COLOR.yellow}Desktop app${COLOR.reset}: Capacitor + Electron shell, Windows installers and web builds from a manually triggered GitHub Action.`);
-  const desktop = await confirm('Add the desktop app?', false);
+  const platforms = await selectPlatforms();
+  if (!platforms.length) return console.log('Choose at least one platform; nothing changed.');
 
   console.log(`\n${COLOR.yellow}Git workflow${COLOR.reset} for AI agents (goes in AGENTS.md):`);
   GIT_POLICIES.forEach((policy, i) => console.log(`  ${i + 1}. ${policy.label}`));
@@ -162,18 +191,20 @@ async function main() {
   const pkgPath = join(ROOT, 'package.json');
   const { name: _templateName, description: _templateDescription, ...templatePkg } = JSON.parse(readFileSync(pkgPath, 'utf8'));
   const pkg = { name, description, ...templatePkg };
-  if (desktop) addDesktop(pkg, values);
+  if (platforms.some((platform) => platform !== 'web')) addDesktop(pkg, values, platforms);
+  else writeBuildWorkflow(platforms);
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
+  rmSync(join(ROOT, 'package-lock.json'), { force: true });
   writePageMeta(title, description);
-  writeAgents({ title, name, description, statements, dataUrl, gitRule, desktop });
-  const readme = readFileSync(join(ADDONS_DIR, 'app-readme.md'), 'utf8') + (desktop ? readFileSync(join(DESKTOP_DIR, 'readme-section.md'), 'utf8') : '');
+  writeAgents({ title, name, description, statements, dataUrl, gitRule, platforms });
+  const readme = readFileSync(join(ADDONS_DIR, 'app-readme.md'), 'utf8') + (platforms.some((platform) => platform !== 'web') ? readFileSync(join(DESKTOP_DIR, 'readme-section.md'), 'utf8').replace('__PLATFORMS__', platforms.join(', ')) : '');
   writeFileSync(join(ROOT, 'README.md'), readme);
   fillPlaceholders('README.md', values);
   SETUP_PATHS.forEach((path) => rmSync(join(ROOT, path), { recursive: true, force: true }));
 
   console.log(`\n${COLOR.green}${title} is ready.${COLOR.reset} Next:`);
   console.log('  npm install');
-  if (desktop) console.log('  npm run desktop:setup');
+  if (platforms.some((platform) => platform !== 'web')) console.log('  npm run tauri:dev');
   console.log('  npm run dev\n');
 }
 

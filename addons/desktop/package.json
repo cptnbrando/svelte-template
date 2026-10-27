@@ -1,16 +1,12 @@
 {
   "scripts": {
-    "desktop:setup": "npm --prefix electron install && node electron/node_modules/electron/install.js",
-    "desktop:sync": "vite build && cap copy @capacitor-community/electron",
-    "desktop": "npm run desktop:sync && npm --prefix electron start",
-    "desktop:dev": "npm --prefix electron run dev",
-    "desktop:dist": "npm run desktop:sync && npm --prefix electron run dist"
-  },
-  "dependencies": {
-    "@capacitor/core": "8.5.3"
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "devDependencies": {
-    "@capacitor-community/electron": "5.0.1",
-    "@capacitor/cli": "8.5.3"
+    "@tauri-apps/cli": "^2.12.4"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4"
   }
 }

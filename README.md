@@ -1,43 +1,29 @@
-# A Svelte Project Template.
+# DOGS Svelte Template
 
-Uses
-- Vite
-- Svelte
-- TailwindCSS
-- JavaScript (fuck TypeScript lol)
-- Icons (@lucide/svelte)
-- Testing
-  - Vitest
-  - JSDOM
-  - @testing-library/svelte
-  - @testing-library/jest-dom
+Starter for DOGS apps built with Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, and Drizzle ORM. Native apps use Tauri 2.
 
-# Browser Support
+## Browser support
 
-No legacy plugin, no polyfills. Two tiers:
-- **The app**: Chrome/Edge 99+, Firefox 97+, Safari 15.4+. Vite lowers JS (Oxc) and CSS (Lightning CSS) to these targets, set in `vite.config.js`. The floor is CSS cascade layers, which Tailwind v4 needs.
-- **Static fallback**: everything older, down to Chrome 40, plus visitors with JS off. A plain HTML page in `index.html` (styles in `src/styles/legacy-fallback.css`). It also shows if the app crashes before rendering.
+- **The app** runs on Chrome/Edge 99+, Firefox 97+ and Safari 15.4+. Vite lowers JS and CSS to these targets in `vite.config.js`.
+- **Static fallback**: older browsers (down to Chrome 40) and visitors with JS off get the plain HTML page in `index.html`, styled by `src/styles/legacy-fallback.css`.
 
-# Creating an app
+## Creating an app
 
-Copy the template and run the setup once:
-```
+Copy the template and run setup once:
+
+```sh
 git clone --depth 1 <svelte-template repo URL> my-app
 cd my-app
 node start.js
-npm i
+npm install
 ```
 
-`start.js` asks for:
-- the package name, title and one-line description (fills `package.json`, `index.html`, the manifest and `README.md`)
-- whether to add the **desktop app**: a Capacitor + Electron shell in `electron/` and a manually triggered GitHub Action that builds the web app and Windows installers as artifacts
-- the **git workflow** agents follow (commit locally, push with draft PRs, or leave changes uncommitted)
-- optional **app details for AGENTS.md**, one statement per line, plus a data source URL
+Setup asks for the package name, title, description, target platforms, git workflow, and optional app details. Choose any combination of Web, Android, iOS, macOS, Windows, and Linux. Native selections add a Tauri 2 shell and a manually triggered GitHub Actions workflow that builds selected targets on compatible runners. Web-only apps do not receive native build files.
 
-Then it deletes itself and `addons/`, so the new app carries no setup code. `start.ps1` and `start.sh` are shortcuts for `node start.js`.
+Then `start.js` removes itself and `addons/` so the generated app carries no setup code. `start.ps1` and `start.sh` are shortcuts for `node start.js`.
 
-# Working on the template
+## Working on the template
 
 - Theme tokens and custom variants: `src/styles/theme.css`
-- Agent rules: `AGENTS.md` (the `<!-- setup:* -->` blocks are what `start.js` rewrites)
-- Desktop add-on: `addons/desktop/` (`files/` is copied into the app as-is)
+- Agent rules: `AGENTS.md` (`<!-- setup:* -->` blocks are rewritten by `start.js`)
+- Tauri add-on: `addons/desktop/` (`files/` is copied into selected apps)

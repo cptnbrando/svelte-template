@@ -1,5 +1,0 @@
-# Web build copied in by `npm run desktop:sync`
-app
-# Installers and unpacked apps from electron-builder
-release
-node_modules

@@ -1,8 +1,8 @@
-
-## Desktop app (Capacitor + Electron)
-- The web app is the product; `electron/` is a thin desktop shell around it. Plain CommonJS JavaScript, no build step: `src/index.js` (main process: window, app:// file serving, CSP), `src/preload.js` (sandboxed bridge), `src/plugins.js` (Capacitor plugin IPC).
-- Desktop-only behavior is feature-detected in the page with `Capacitor.getPlatform() === 'electron'` from `@capacitor/core`. The web build must keep working on its own.
-- `npm run desktop:dev` opens the shell on the running Vite dev server (hot reload). `npm run desktop` runs it on a fresh build. `npm run desktop:dist` packages installers into `electron/release/`.
-- Release builds come from the manually triggered GitHub Action `.github/workflows/build-apps.yml`: web `dist/` plus Windows x64 and arm64 installers and portable exes, as run artifacts.
-- The shell's only packages are `electron` and `electron-builder`. Electron APIs and Node built-ins cover everything else.
-- Check the layouts inside the desktop window too: it resizes down to 320×320, so every display in the table above applies.
+## Native apps (Tauri 2)
+- Selected native targets: __PLATFORMS__.
+- `src-tauri/` is the Rust shell; the Svelte/Vite web app remains the product and must continue to build independently.
+- Detect native-only behavior with `isTauri()` from `@tauri-apps/api/core`. Keep web behavior available when running in a browser.
+- `npm run tauri:dev` opens the Tauri development shell. `npm run tauri:build` builds the current host target. `npm run tauri:build:platforms` builds the selected native targets where the host toolchain supports them.
+- Release builds are manually triggered from `.github/workflows/build-apps.yml`. Each selected platform is built on its required GitHub-hosted runner and uploaded as an artifact.
+- Android builds require Android Studio command line tools and an installed SDK/NDK; iOS builds require macOS and Xcode. Linux and Windows builds use their native runner toolchains.
+- Check native window layouts down to 320×320; every responsive layout requirement applies.
