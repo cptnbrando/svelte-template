@@ -1,7 +1,7 @@
 // DOGS app setup. Run once in a fresh copy of the template: `node start.js`.
 // Asks what the new app is, selects target platforms, writes project files, then removes setup-only files.
 // Node built-ins only, so it runs before `npm install`.
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import { createInterface, emitKeypressEvents } from 'node:readline';
@@ -266,6 +266,88 @@ function useMasterBranch() {
   }
 }
 
+/** Creates a GitHub repository and connects this app to it, reusing an existing empty repository. */
+async function setupGitHubRepository(name) {
+  if (!(await confirm('Create a GitHub repository now?', false))) return;
+  try {
+    execFileSync('gh', ['auth', 'status'], { cwd: ROOT, stdio: 'ignore' });
+  } catch {
+    console.log(`${COLOR.yellow}GitHub CLI is missing or not authenticated; skipping repository setup.${COLOR.reset}`);
+    return;
+  }
+
+  let owner = '';
+  if (await confirm('Put the repository in a GitHub organization?', false)) {
+    let organizations;
+    try {
+      organizations = execFileSync('gh', ['api', '--paginate', 'user/orgs', '--jq', '.[].login'], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim().split(/\r?\n/).filter(Boolean);
+    } catch {
+      console.log(`${COLOR.yellow}Could not list GitHub organizations; skipping repository setup.${COLOR.reset}`);
+      return;
+    }
+    if (!organizations.length) {
+      console.log(`${COLOR.yellow}No GitHub organizations are available to this account; skipping repository setup.${COLOR.reset}`);
+      return;
+    }
+    console.log('\nGitHub organizations:');
+    organizations.forEach((organization, index) => console.log(`  ${index + 1}. ${organization}`));
+    const selection = Number(await ask('Choose an organization', '1')) - 1;
+    if (!Number.isInteger(selection) || selection < 0 || selection >= organizations.length) {
+      console.log(`${COLOR.yellow}Invalid organization selection; skipping repository setup.${COLOR.reset}`);
+      return;
+    }
+    owner = organizations[selection];
+  } else {
+    try {
+      owner = execFileSync('gh', ['api', 'user', '--jq', '.login'], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    } catch {
+      console.log(`${COLOR.yellow}Could not determine the GitHub account; skipping repository setup.${COLOR.reset}`);
+      return;
+    }
+  }
+
+  const repository = `${owner}/${name}`;
+  const remoteUrl = `https://github.com/${repository}.git`;
+  try {
+    // Check through the authenticated GitHub API so private empty repositories do not depend on Git credentials.
+    const repositoryState = execFileSync('gh', [
+      'api', 'graphql',
+      '-F', `owner=${owner}`,
+      '-F', `name=${name}`,
+      '-f', 'query=query($owner:String!, $name:String!){repository(owner:$owner,name:$name){isEmpty}}',
+      '--jq', 'if .data.repository == null then "missing" elif .data.repository.isEmpty then "empty" else "populated" end',
+    ], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+
+    if (repositoryState === 'populated') {
+      throw new Error(`GitHub repository ${repository} already contains refs; leaving it untouched.`);
+    }
+    if (repositoryState === 'empty') {
+      console.log(`Using existing empty GitHub repository ${repository}.`);
+    } else if (repositoryState === 'missing') {
+      execFileSync('gh', ['repo', 'create', repository, '--private'], { cwd: ROOT, stdio: 'inherit' });
+      console.log(`Created private GitHub repository ${repository}.`);
+    } else {
+      throw new Error(`Unexpected repository lookup result for ${repository}: ${repositoryState}`);
+    }
+
+    execFileSync('git', ['remote', 'add', 'origin', remoteUrl], { cwd: ROOT, stdio: 'ignore' });
+  } catch (error) {
+    console.log(`${COLOR.yellow}GitHub repository setup failed: ${error.message}${COLOR.reset}`);
+  }
+}
+
 async function main() {
   console.log(`\n${COLOR.cyan}--- DOGS app setup ---${COLOR.reset}\n`);
   if (!existsSync(ADDONS_DIR)) return console.log('Setup already ran here: addons/ is gone.');
@@ -318,6 +400,7 @@ async function main() {
   fillPlaceholders('README.md', values);
   SETUP_PATHS.forEach((path) => rmSync(join(ROOT, path), { recursive: true, force: true }));
   useMasterBranch();
+  await setupGitHubRepository(name);
 
   console.log(`\n${COLOR.green}${title} is ready.${COLOR.reset} Next:`);
   console.log('  npm install');

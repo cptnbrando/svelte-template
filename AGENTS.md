@@ -48,6 +48,14 @@ Never write the owner's name, pseudonym, alias, or any personal information anyw
 <!-- /setup:git -->
 - Generated data, background-script output and local builds belong in `.gitignore`.
 
+### Greenfield until the first paying customer
+Until one paying customer is using the app, the app is greenfield: push straight to `master`, crash and burn, cook and clean hard. No review gates, no staging, no ceremony; fix forward.
+
+Once there is a paying customer, the rules change at the money line:
+- SQL migrations require regression tests across every UI and service in the fleet of DOGS apps before they land.
+- Sensitive tasks (auth, payments, data deletion, encryption, anything that touches a customer's data) get the same discretion: tests across the fleet, a reviewer, and a rollback plan.
+- Everything else stays fast.
+
 ## Stack
 - Vite + Svelte, **JavaScript only** (no TypeScript). Add concise JSDoc types to complex functions and components.
 - Styling is **Tailwind CSS plus plain CSS**. No SCSS, Sass, Less or other preprocessors.
