@@ -7,18 +7,18 @@ Rules for every AI agent working in this repository.
 - **Name**: DOGS Svelte Template (`@dogs/svelte-template`)
 - **What it is**: The starter every DOGS app is created from. `node start.js` asks for app details and target platforms, creates the app configuration, then removes setup-only files.
 - Keep `start.js` and `addons/` working whenever the template changes. A generated app must be ready to install and run.
-- **Main tech stack**: Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, Cloudflare Workers, D1, R2, Pages, and optional Tauri 2 native shells. No ORM.
+- **Main tech stack**: Vite, Svelte 5, Tailwind CSS v4, JavaScript with JSDoc, Cloudflare Workers, D1, R2, Pages, Workers, and optional Tauri 2 native shells. No ORM. No TS.
 <!-- /setup:project -->
 
 ## Cloudflare environments
 - The architecture is Cloudflare serverless. Choose the deployment target by what the app needs:
   - **No data and no logins**: deploy the static build to Cloudflare Pages. No Worker, D1 or R2.
   - **Data or logins**: serve the app from Cloudflare Workers, with an API that connects to D1, R2 and other bindings. The web and native clients reach data only through that API.
-- Use Cloudflare Workers and D1 for serverless logic and relational data, with R2 for object storage when needed. Use Cloudflare bindings and D1 APIs directly. Stay inside the free tier, cache responses, lazy load, and keep data locally so each visitor makes as few requests as possible.
+- Use Cloudflare Workers and D1 for serverless logic and relational data, with R2 for object storage when needed. Use Cloudflare bindings and D1 APIs directly. Stay inside the free tier, cache responses, lazy load, and cache data locally so each visitor makes as few requests as possible but cache smart so that a changed R2 file is recognizable and responsible as soon as possible.
 - Server code lives in `api/`: Pages Functions in `api/functions/`, SQL migrations in `api/migrations/`, Wrangler config in `api/wrangler.jsonc`. The optional Tauri shell lives in `src/tauri/`.
 - Database changes require versioned SQL migrations. SQL migrations are the source of truth; do not duplicate database schemas in application code.
 - Environments depend on the deployment target, and each one is isolated:
-  - **Static Pages apps** have two environments and no staging:
+  - **Static Pages apps** have two environments and optional staging environment:
     - **Local**: `npm run dev`, or `npm run build` and `npx vite preview` to check the production build.
     - **Production**: Cloudflare Pages serves the static build. GitHub Actions deploys only from `master`; other branches are not deployed.
   - **Data apps on Workers** have three environments:
